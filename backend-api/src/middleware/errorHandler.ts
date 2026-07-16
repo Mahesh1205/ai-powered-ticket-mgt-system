@@ -2,6 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/errors";
 import type { ErrorResponse } from "../types/index";
 
+interface BodyParserError extends Error {
+  type?: string;
+  status?: number;
+}
+
 /**
  * Global error handling middleware for the Express application.
  *
@@ -33,7 +38,8 @@ export function errorHandler(
   }
 
   // Handle JSON parse errors from Express body parser
-  if ((err as any).type === "entity.parse.failed" || (err as any).status === 400) {
+  const bodyParserErr = err as BodyParserError;
+  if (bodyParserErr.type === "entity.parse.failed" || bodyParserErr.status === 400) {
     const response: ErrorResponse = {
       error: "Invalid request body.",
       code: "VALIDATION_ERROR",

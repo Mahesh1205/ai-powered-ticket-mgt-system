@@ -36,19 +36,24 @@ This plan implements a full-stack internal support ticket management system with
 
 - [x] 2. Database setup and migrations
   - [x] 2.1 Create database migration files
-    - Create `backend-api/migrations/001_create_users.sql` with users table (UUID PK, name, email UNIQUE, passwordHash, role CHECK, timestamps)
-    - Create `backend-api/migrations/002_create_tickets.sql` with tickets table (UUID PK, title, description, priority CHECK, status CHECK DEFAULT 'Open', assignedTo FK, createdBy FK, timestamps, indexes)
-    - Create `backend-api/migrations/003_create_comments.sql` with comments table (UUID PK, ticketId FK CASCADE, createdBy FK, message, createdAt, index on ticketId)
+    - Create `backend-api/db/scripts/create-database.sql` with CREATE DATABASE IF NOT EXISTS logic
+    - Create `backend-api/db/scripts/setup.sh` executable script that derives admin URL from DATABASE_URL, creates database, runs migrations, and seeds data
+    - Create `backend-api/db/migrations/001_create_users.sql` with users table (UUID PK, name, email UNIQUE, passwordHash, role CHECK, timestamps) using CREATE TABLE IF NOT EXISTS
+    - Create `backend-api/db/migrations/002_create_tickets.sql` with tickets table (UUID PK, title, description, priority CHECK, status CHECK DEFAULT 'Open', assignedTo FK, createdBy FK, timestamps, indexes) using CREATE TABLE/INDEX IF NOT EXISTS
+    - Create `backend-api/db/migrations/003_create_comments.sql` with comments table (UUID PK, ticketId FK CASCADE, createdBy FK, message, createdAt, index on ticketId) using CREATE TABLE/INDEX IF NOT EXISTS
+    - Create `backend-api/db/migrate.js` Node.js script to run SQL migration files in order using pg Pool and DATABASE_URL
+    - Create `backend-api/db/seeds/001_users.sql` documenting seed data
     - Create `backend-api/src/utils/db.ts` with PostgreSQL connection pool using pg Pool and DATABASE_URL
-    - Create `backend-api/src/utils/migrate.ts` script to run SQL migration files in order
-    - _Requirements: 16.1, 16.2, 16.3, 16.5, 16.6_
+    - DATABASE_URL format: `postgresql://username:password@host:port/database_name`
+    - _Requirements: 16.1, 16.2, 16.3, 16.5, 16.6, 16.8, 16.9, 16.10, 16.11_
 
   - [x] 2.2 Create seed data script
-    - Create `backend-api/src/utils/seed.ts` that inserts default admin (admin@example.com / Admin123!) and agent (agent@example.com / Agent123!) users
+    - Create `backend-api/db/seed.js` Node.js script that inserts default admin (admin@example.com / Admin123!) and agent (agent@example.com / Agent123!) users
     - Use INSERT ... ON CONFLICT DO NOTHING for idempotency
     - Hash passwords with bcrypt cost factor 10
-    - Add `npm run migrate` and `npm run seed` scripts to package.json
-    - _Requirements: 16.4, 17.1_
+    - Add npm scripts to package.json: `db:create`, `db:migrate`, `db:seed`, `db:setup` (runs create → migrate → seed)
+    - Keep legacy `npm run migrate` and `npm run seed` scripts for backward compatibility
+    - _Requirements: 16.4, 16.9, 16.10, 17.1_
 
 - [x] 3. Backend authentication and middleware
   - [x] 3.1 Implement auth middleware (JWT verification and role enforcement)
@@ -196,35 +201,35 @@ This plan implements a full-stack internal support ticket management system with
 - [x] 8. Checkpoint — Backend complete
   - Ensure all backend tests pass, ask the user if questions arise.
 
-- [ ] 9. Frontend authentication
-  - [ ] 9.1 Implement auth store (Zustand) and login page
+- [x] 9. Frontend authentication
+  - [x] 9.1 Implement auth store (Zustand) and login page
     - Create `ui/src/stores/authStore.ts` with AuthState interface: token, user, isLoading, login, logout, restoreSession
     - Store token in sessionStorage; restoreSession calls GET /api/auth/me on app load
     - Create `ui/src/pages/LoginPage.tsx` with email/password form, error display, submit handler calling authStore.login
     - Style with Tailwind CSS 4
     - _Requirements: 1.1, 2.3, 2.4, 3.5, 15.3_
 
-  - [ ] 9.2 Implement protected route component and app routing
+  - [x] 9.2 Implement protected route component and app routing
     - Create `ui/src/components/ProtectedRoute.tsx` that checks sessionStorage token, validates role, shows loading state during session restore
     - Redirect to /login if no token; redirect to /tickets if agent accesses admin routes
     - Update `ui/src/App.tsx` with react-router-dom routes: /login, /tickets, /tickets/:id, /tickets/new, /users, /users/new, /users/:id/edit
     - Wrap authenticated routes with ProtectedRoute
     - _Requirements: 3.4, 14.4, 14.5_
 
-  - [ ] 9.3 Implement navigation bar with role-based rendering
+  - [x] 9.3 Implement navigation bar with role-based rendering
     - Create `ui/src/components/NavBar.tsx` displaying user name/role, navigation links, logout button
     - Show "Users" nav item only for admin role
     - Handle logout: clear sessionStorage, reset authStore, redirect to /login
     - _Requirements: 14.1, 14.2, 14.3, 2.3_
 
-- [ ] 10. Frontend ticket management
-  - [ ] 10.1 Implement ticket store (Zustand)
+- [x] 10. Frontend ticket management
+  - [x] 10.1 Implement ticket store (Zustand)
     - Create `ui/src/stores/ticketStore.ts` with TicketState interface
     - Methods: fetchTickets (with search/status params), fetchTicket, createTicket, updateTicket, transitionStatus, addComment
     - Handle API errors and set error state for display
     - _Requirements: 5.1, 6.1, 4.1, 7.1, 8.1, 9.1_
 
-  - [ ] 10.2 Implement ticket list page with search and filter
+  - [x] 10.2 Implement ticket list page with search and filter
     - Create `ui/src/pages/TicketListPage.tsx` displaying tickets in a table/list
     - Add search input (keyword) and status dropdown filter
     - Show ticket title, priority, status, assignedTo, createdAt
@@ -233,14 +238,14 @@ This plan implements a full-stack internal support ticket management system with
     - Style with Tailwind CSS 4
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ] 10.3 Implement create ticket page
+  - [x] 10.3 Implement create ticket page
     - Create `ui/src/pages/CreateTicketPage.tsx` with form: title, description, priority dropdown
     - Client-side validation: required fields, title max 200, description max 5000
     - Display API validation errors inline
     - Redirect to ticket list on success
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 15.3_
 
-  - [ ] 10.4 Implement ticket detail page with status transitions and comments
+  - [x] 10.4 Implement ticket detail page with status transitions and comments
     - Create `ui/src/pages/TicketDetailPage.tsx` showing full ticket info, edit form, status transition buttons, and comment list
     - Display only valid transition buttons based on current status (use state machine logic)
     - Hide all transition buttons for terminal states (Closed, Cancelled)
@@ -250,30 +255,30 @@ This plan implements a full-stack internal support ticket management system with
     - Add comment form with validation (not empty/whitespace, max 2000 chars)
     - _Requirements: 6.1, 7.1, 8.1, 9.1, 22.1, 22.2, 22.3, 22.4, 22.5, 15.3_
 
-  - [ ]* 10.5 Write frontend tests for status transition button rendering
+  - [x] 10.5 Write frontend tests for status transition button rendering
     - **Property 23: Frontend displays only valid transition buttons**
     - **Validates: Requirements 22.1, 22.2, 22.4**
 
-- [ ] 11. Frontend user management (admin-only)
-  - [ ] 11.1 Implement user store (Zustand) and user list page
+- [x] 11. Frontend user management (admin-only)
+  - [x] 11.1 Implement user store (Zustand) and user list page
     - Create `ui/src/stores/userStore.ts` with UserState interface
     - Methods: fetchUsers, createUser, updateUser, deleteUser
     - Create `ui/src/pages/UserListPage.tsx` showing user table with name, email, role, actions (edit, delete)
     - Confirm before delete; show 409 error if user has references
     - _Requirements: 10.1, 13.1, 13.2_
 
-  - [ ] 11.2 Implement create and edit user pages
+  - [x] 11.2 Implement create and edit user pages
     - Create `ui/src/pages/CreateUserPage.tsx` with form: name, email, password, role dropdown
     - Create `ui/src/pages/EditUserPage.tsx` with pre-populated form, optional password field
     - Client-side validation matching backend rules
     - Display API errors inline (duplicate email 409, validation 400)
     - _Requirements: 11.1, 11.4, 11.5, 11.6, 12.1, 12.5, 12.6, 15.3_
 
-- [ ] 12. Checkpoint — Frontend complete
+- [x] 12. Checkpoint — Frontend complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 13. Integration tests
-  - [ ] 13.1 Write state machine integration tests
+- [x] 13. Integration tests
+  - [x] 13.1 Write state machine integration tests
     - Create `backend-api/tests/integration/stateMachine.test.ts`
     - Test all 5 valid transitions: Open→In Progress, Open→Cancelled, In Progress→Resolved, In Progress→Cancelled, Resolved→Closed (expect HTTP 200)
     - Test 5 invalid transitions: Open→Resolved, Open→Closed, In Progress→Open, Closed→any, Cancelled→any (expect HTTP 409)
@@ -281,7 +286,7 @@ This plan implements a full-stack internal support ticket management system with
     - Setup/teardown: create test user, authenticate, create test ticket per test
     - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 19.7, 19.8, 19.9, 19.10_
 
-  - [ ] 13.2 Write authentication and authorization integration tests
+  - [x] 13.2 Write authentication and authorization integration tests
     - Create `backend-api/tests/integration/auth.test.ts`
     - Test valid login returns 200 with token and user object
     - Test wrong password returns 401 without token
@@ -293,14 +298,14 @@ This plan implements a full-stack internal support ticket management system with
     - Test GET /api/auth/me with valid token returns user without passwordHash
     - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.8_
 
-- [ ] 14. Documentation artifacts
-  - [ ] 14.1 Create project README and environment documentation
+- [x] 14. Documentation artifacts
+  - [x] 14.1 Create project README and environment documentation
     - Create/update root `README.md` with: project overview, prerequisites (Node.js 22, PostgreSQL), environment variable setup, dependency installation, migration command, seed command, start commands for backend and frontend
     - Create root `.env.example` with all required env vars: DATABASE_URL, JWT_SECRET, PORT
     - Ensure .gitignore at root includes .env files
     - _Requirements: 18.3, 17.2, 17.3, 21.8_
 
-  - [ ] 14.2 Create design and workflow documentation
+  - [x] 14.2 Create design and workflow documentation
     - Create `docs/design-notes.md` covering architectural decisions (layered backend, Zustand stores, JWT stateless auth)
     - Create `docs/state-machine.md` documenting ticket lifecycle states and transitions
     - Create `docs/auth-design.md` documenting authentication flow, JWT structure, middleware chain
@@ -309,7 +314,7 @@ This plan implements a full-stack internal support ticket management system with
     - Create `tool-workflow.md` at repository root documenting AI tool usage methodology
     - _Requirements: 21.1, 21.2, 21.4, 21.5, 21.6_
 
-- [ ] 15. Final checkpoint — All tests pass and project is complete
+- [x] 15. Final checkpoint — All tests pass and project is complete
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

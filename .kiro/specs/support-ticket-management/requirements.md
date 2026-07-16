@@ -238,6 +238,10 @@ The following items are explicitly out of scope for the core delivery but may be
 5. THE System SHALL use parameterized queries or an ORM to prevent SQL injection
 6. THE System SHALL enforce foreign key constraints such that Ticket references User via createdBy and assignedTo columns, and Comment references both Ticket and User
 7. WHEN the application process restarts or reconnects to the database, THE System SHALL retain all previously committed User, Ticket, and Comment records without data loss
+8. THE System SHALL organize all database artifacts under a `backend-api/db/` directory with the structure: `db/scripts/` (setup shell script and create-database SQL), `db/migrations/` (numbered SQL migration files), and `db/seeds/` (seed data documentation)
+9. THE System SHALL provide a single `npm run db:setup` command that executes the full database initialization sequence: create database (if not exists) → run migrations → seed default users
+10. THE System SHALL provide individual npm scripts `db:create`, `db:migrate`, and `db:seed` for running each database step independently
+11. THE System SHALL accept a DATABASE_URL environment variable in the PostgreSQL connection string format `postgresql://username:password@host:port/database_name` (e.g., `postgresql://postgres:postgres@localhost:5432/ticket_system`), and the setup script SHALL derive the admin connection URL from DATABASE_URL by replacing the database name with `postgres`
 
 ### Requirement 17: Security Requirements
 

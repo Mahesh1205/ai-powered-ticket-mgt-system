@@ -6,7 +6,7 @@ import {
   updateUser,
   deleteUser,
 } from "../services/userService";
-import type { CreateUserRequest, UpdateUserRequest } from "../types/requests";
+import { createUserSchema, updateUserSchema } from "../validation/schemas";
 
 const router = Router();
 
@@ -28,8 +28,18 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
  * Body: { name, email, password, role }
  */
 router.post("/", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const body = req.body as CreateUserRequest;
-  const user = await createUser(body);
+  const parsed = createUserSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const user = await createUser(parsed.data);
   res.status(201).json(user);
 });
 
@@ -40,8 +50,19 @@ router.post("/", requireAdmin, async (req: Request, res: Response): Promise<void
  */
 router.patch("/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const body = req.body as UpdateUserRequest;
-  const user = await updateUser(id, body);
+
+  const parsed = updateUserSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const user = await updateUser(id, parsed.data);
   res.status(200).json(user);
 });
 

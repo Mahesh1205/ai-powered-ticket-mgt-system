@@ -3,7 +3,7 @@ import path from 'path';
 import pool from './db';
 
 async function runMigrations(): Promise<void> {
-  const migrationsDir = path.resolve(__dirname, '../../migrations');
+  const migrationsDir = path.resolve(__dirname, '../../db/migrations');
 
   // Get all .sql files sorted by name
   const files = fs.readdirSync(migrationsDir)

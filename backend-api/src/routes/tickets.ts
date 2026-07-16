@@ -7,11 +7,11 @@ import {
   updateTicket,
   transitionStatus,
 } from "../services/ticketService";
-import type {
-  CreateTicketRequest,
-  UpdateTicketRequest,
-  TransitionStatusRequest,
-} from "../types/requests";
+import {
+  createTicketSchema,
+  updateTicketSchema,
+  transitionStatusSchema,
+} from "../validation/schemas";
 
 const router = Router();
 
@@ -24,10 +24,19 @@ router.use(authMiddleware);
  * Body: { title, description, priority }
  */
 router.post("/", async (req: Request, res: Response): Promise<void> => {
-  const body = req.body as CreateTicketRequest;
-  const createdBy = req.user!.sub;
+  const parsed = createTicketSchema.safeParse(req.body);
 
-  const ticket = await createTicket(body, createdBy);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const createdBy = req.user!.sub;
+  const ticket = await createTicket(parsed.data, createdBy);
   res.status(201).json(ticket);
 });
 
@@ -61,9 +70,28 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
  */
 router.patch("/:id", async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const body = req.body as UpdateTicketRequest;
 
-  const ticket = await updateTicket(id, body);
+  // Explicitly reject status field in update payload
+  if ("status" in req.body) {
+    res.status(400).json({
+      error: "Status cannot be changed via this endpoint. Use PATCH /api/tickets/:id/status instead.",
+      code: "VALIDATION_ERROR",
+    });
+    return;
+  }
+
+  const parsed = updateTicketSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const ticket = await updateTicket(id, parsed.data);
   res.status(200).json(ticket);
 });
 
@@ -74,9 +102,19 @@ router.patch("/:id", async (req: Request, res: Response): Promise<void> => {
  */
 router.patch("/:id/status", async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const body = req.body as TransitionStatusRequest;
 
-  const ticket = await transitionStatus(id, body);
+  const parsed = transitionStatusSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const ticket = await transitionStatus(id, parsed.data);
   res.status(200).json(ticket);
 });
 

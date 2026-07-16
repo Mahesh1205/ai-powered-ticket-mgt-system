@@ -3,6 +3,8 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/auth";
 import ticketRoutes from "./routes/tickets";
 import commentRoutes from "./routes/comments";
@@ -22,6 +24,18 @@ if (!jwtSecret || jwtSecret.length < 32) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security headers
+app.use(helmet());
+
+// Rate limiter for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests", code: "RATE_LIMIT_EXCEEDED" },
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -32,7 +46,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Auth routes (login is public, /me is protected internally)
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 
 // Global auth middleware — applies to all routes below this point
 // POST /api/auth/login and /api/health are already mounted above, so they are excluded

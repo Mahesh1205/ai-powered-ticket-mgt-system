@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { authMiddleware } from "../middleware/auth";
 import { createComment } from "../services/commentService";
-import type { CreateCommentRequest } from "../types/requests";
+import { createCommentSchema } from "../validation/schemas";
 
 const router = Router();
 
@@ -15,10 +15,20 @@ router.use(authMiddleware);
  */
 router.post("/:id/comments", async (req: Request, res: Response): Promise<void> => {
   const ticketId = req.params.id as string;
-  const body = req.body as CreateCommentRequest;
-  const createdBy = req.user!.sub;
 
-  const comment = await createComment(ticketId, body.message, createdBy);
+  const parsed = createCommentSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const createdBy = req.user!.sub;
+  const comment = await createComment(ticketId, parsed.data.message, createdBy);
   res.status(201).json(comment);
 });
 

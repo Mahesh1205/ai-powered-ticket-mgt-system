@@ -396,8 +396,61 @@ CREATE INDEX idx_comments_ticket_id ON comments("ticketId");
 
 ### Migration Strategy
 
-- Use a migration tool (e.g., `node-pg-migrate` or raw SQL files with a runner script).
-- Migrations are numbered sequentially (e.g., `001_create_users.sql`, `002_create_tickets.sql`, `003_create_comments.sql`).
+Database artifacts are organized under `backend-api/db/`:
+
+```
+db/
+├── scripts/
+│   ├── create-database.sql   # CREATE DATABASE IF NOT EXISTS
+│   └── setup.sh              # create → migrate → seed (single-command setup)
+├── migrations/
+│   ├── 001_create_users.sql
+│   ├── 002_create_tickets.sql
+│   └── 003_create_comments.sql
+├── seeds/
+│   └── 001_users.sql         # Documents seed data (actual seeding via seed.js)
+├── migrate.js                # Node.js migration runner
+└── seed.js                   # Node.js seed runner (bcrypt hashing)
+```
+
+**NPM Scripts:**
+
+```json
+{
+  "db:create": "bash db/scripts/setup.sh create",
+  "db:migrate": "node db/migrate.js",
+  "db:seed": "node db/seed.js",
+  "db:setup": "bash db/scripts/setup.sh"
+}
+```
+
+**DATABASE_URL Format:**
+
+```
+postgresql://username:password@host:port/database_name
+```
+
+Examples:
+- With credentials: `postgresql://postgres:postgres@localhost:5432/ticket_system`
+- macOS Homebrew (no password): `postgresql://localhost:5432/ticket_system`
+
+The `setup.sh` script derives the admin connection URL from DATABASE_URL by replacing the database name with `postgres`:
+
+```bash
+ADMIN_URL="${DATABASE_URL%/*}/postgres"
+```
+
+**Local Setup Sequence:**
+
+```bash
+cp .env.example .env          # Set DATABASE_URL, JWT_SECRET, PORT
+npm install
+npm run db:setup              # Creates DB → runs migrations → seeds users
+npm run dev                   # Start the API server
+```
+
+- Migrations use raw SQL files with a lightweight Node.js runner (`db/migrate.js`).
+- Migrations are numbered sequentially and use `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` for idempotency.
 - Running all migrations on an empty database produces the complete schema.
 
 ### Seed Data

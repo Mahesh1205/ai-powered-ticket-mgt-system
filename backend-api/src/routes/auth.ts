@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { login } from "../services/authService";
 import { findById } from "../repositories/userRepository";
 import { authMiddleware } from "../middleware/auth";
-import type { LoginRequest } from "../types/requests";
+import { loginSchema } from "../validation/schemas";
 import type { UserDTO } from "../types/index";
 
 const router = Router();
@@ -13,21 +13,18 @@ const router = Router();
  * Returns a JWT token and user object on success.
  */
 router.post("/login", async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body as Partial<LoginRequest>;
+  const parsed = loginSchema.safeParse(req.body);
 
-  // Validate request body: return 400 if email or password missing
-  if (!email || !password) {
-    const details: Record<string, string> = {};
-    if (!email) details.email = "Email is required";
-    if (!password) details.password = "Password is required";
-
+  if (!parsed.success) {
     res.status(400).json({
-      error: "Validation failed. Email and password are required.",
+      error: "Validation failed",
       code: "VALIDATION_ERROR",
-      details,
+      details: parsed.error.flatten().fieldErrors,
     });
     return;
   }
+
+  const { email, password } = parsed.data;
 
   const result = await login(email, password);
 
