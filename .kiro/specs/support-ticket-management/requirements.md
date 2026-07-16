@@ -21,6 +21,10 @@ An internal support ticket management system that enables authenticated users to
 - **State_Machine**: The defined set of valid ticket status transitions enforced by TicketStatus_Service
 - **JWT**: A JSON Web Token used for stateless authentication with 24-hour expiry
 - **Protected_Route**: A frontend route component that redirects unauthenticated users to login
+- **OpenAPI_Specification**: The machine-readable API description document conforming to the OpenAPI 3.x standard
+- **Swagger_UI**: The interactive documentation interface rendered from the OpenAPI specification, served at /api-docs
+- **CI_Pipeline**: The GitHub Actions automated workflow that runs lint, build, and test steps on code changes
+- **Docker_Compose**: The multi-container orchestration configuration (docker-compose.yml) defining backend, frontend, and database services
 
 ## Optional Scope (Stretch Goals)
 
@@ -28,9 +32,6 @@ The following items are explicitly out of scope for the core delivery but may be
 
 - **Pagination and sorting** — Server-side pagination (limit/offset or cursor-based) and column sorting for ticket and user lists
 - **Priority and assignee filters** — Additional query parameters (GET /api/tickets?priority=high&assignedTo=userId) beyond the core status filter
-- **Docker** — Dockerfile and docker-compose.yml for containerized local development and deployment
-- **CI pipeline** — GitHub Actions or equivalent CI configuration for automated lint, build, and test on push/PR
-- **OpenAPI docs** — Machine-readable API specification (Swagger/OpenAPI 3.x) with auto-generated documentation UI
 
 ## Requirements
 
@@ -312,3 +313,48 @@ The following items are explicitly out of scope for the core delivery but may be
 6. THE System SHALL include docs/debugging-notes.md documenting significant debugging sessions and their resolutions
 7. THE System SHALL include a PR description with a summary of changes, what was tested, and a reflection on the AI-assisted development process
 8. THE System SHALL include a .env.example file at the repository root documenting all required environment variables with placeholder values
+
+### Requirement 23: API Documentation via OpenAPI Specification
+
+**User Story:** As a developer, I want auto-generated API documentation accessible at a dedicated endpoint, so that I can explore and test API endpoints without reading source code.
+
+#### Acceptance Criteria
+
+1. THE API SHALL include a machine-readable OpenAPI 3.x specification document describing all endpoints, request bodies, response schemas, and authentication requirements
+2. THE API SHALL serve a Swagger UI documentation interface at GET /api-docs that renders the OpenAPI specification as an interactive, browsable page
+3. WHEN the API starts successfully, THE API SHALL make the Swagger UI accessible at the /api-docs path without requiring authentication
+4. THE OpenAPI specification SHALL document all request body schemas with field types, required fields, and validation constraints matching the implemented validation rules
+5. THE OpenAPI specification SHALL document all response schemas including success responses and structured error responses for each endpoint
+6. THE OpenAPI specification SHALL include a securitySchemes definition for Bearer JWT authentication and apply it to all protected endpoints
+7. WHEN a new route is added or an existing route is modified, THE OpenAPI specification SHALL be updated to reflect the change before the feature is considered complete
+
+### Requirement 24: Docker Setup for Containerized Development and Deployment
+
+**User Story:** As a developer, I want a Docker-based setup for the application, so that I can run the full stack locally without manual dependency installation and ensure consistent environments across machines.
+
+#### Acceptance Criteria
+
+1. THE System SHALL include a Dockerfile for the backend API service that builds a production-ready Node.js container image based on Node.js 22 Alpine
+2. THE System SHALL include a Dockerfile for the Frontend service that builds a production-ready container image serving the built React application via a static file server
+3. THE System SHALL include a docker-compose.yml at the repository root that defines services for the backend API, the Frontend, and a PostgreSQL database
+4. WHEN a developer runs `docker-compose up` from the repository root, THE System SHALL start all three services (backend API, Frontend, PostgreSQL) and the backend API SHALL be accessible on its configured port
+5. THE docker-compose.yml SHALL configure the PostgreSQL service with a named volume for data persistence across container restarts
+6. THE docker-compose.yml SHALL configure service dependencies such that the backend API service waits for the PostgreSQL service to be ready before starting
+7. THE docker-compose.yml SHALL pass all required environment variables (DATABASE_URL, JWT_SECRET, PORT) to the backend API service via an environment section or env_file reference
+8. THE System SHALL include a .dockerignore file for both the backend API and Frontend contexts that excludes node_modules, .env files, and other non-essential files from the build context
+9. WHEN the PostgreSQL container starts for the first time, THE System SHALL automatically run database migrations and seed data so the application is ready to use without manual setup steps
+
+### Requirement 25: CI Workflow via GitHub Actions
+
+**User Story:** As a developer, I want an automated CI pipeline that runs on every push and pull request, so that code quality issues and test failures are caught before merging.
+
+#### Acceptance Criteria
+
+1. THE System SHALL include a GitHub Actions workflow configuration file at .github/workflows/ci.yml that triggers on push to the main branch and on pull request events targeting the main branch
+2. WHEN the CI workflow is triggered, THE CI pipeline SHALL execute a linting step that runs the configured linter (ESLint) on both the backend API and Frontend source code and fails the workflow if lint errors are detected
+3. WHEN the CI workflow is triggered, THE CI pipeline SHALL execute a build step that compiles the backend API TypeScript source and builds the Frontend production bundle, failing the workflow if either build produces errors
+4. WHEN the CI workflow is triggered, THE CI pipeline SHALL execute a test step that runs the backend API test suite and fails the workflow if any test fails
+5. THE CI workflow SHALL use Node.js 22 as the runtime environment matching the project's .nvmrc specification
+6. THE CI workflow SHALL install dependencies using the lockfile (npm ci) to ensure reproducible builds
+7. THE CI workflow SHALL provision a PostgreSQL service container for the test step with credentials matching the test environment configuration
+8. THE CI workflow SHALL execute steps in the order: install dependencies, lint, build, test, ensuring early termination if any step fails

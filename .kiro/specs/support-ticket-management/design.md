@@ -611,6 +611,340 @@ const seedUsers = [
 
 **Validates: Requirements 15.1**
 
+### Property 25: OpenAPI documentation is accessible without authentication
+
+*For any* HTTP GET request to /api-docs (with or without a Bearer token), the API SHALL return a successful HTTP response (2xx) rendering the Swagger UI page.
+
+**Validates: Requirements 23.2, 23.3**
+
+### Non-Property Requirements (Infrastructure)
+
+The following requirements are validated through smoke tests and integration checks rather than property-based tests:
+
+- **Requirement 24 (Docker)** — Validated by running `docker-compose up` and confirming all services start and communicate correctly. This is Infrastructure as Code — PBT does not apply.
+- **Requirement 25 (CI)** — Validated by triggering the GitHub Actions workflow and confirming all steps pass. This is pipeline configuration — PBT does not apply.
+
+## API Documentation (OpenAPI / Swagger)
+
+### Integration Approach
+
+The API documentation is auto-generated from a programmatically-defined OpenAPI 3.x specification using `swagger-jsdoc` and served via `swagger-ui-express`.
+
+```mermaid
+graph LR
+    A[JSDoc annotations in route files] --> B[swagger-jsdoc]
+    B --> C[OpenAPI 3.x JSON spec]
+    C --> D[swagger-ui-express]
+    D --> E["GET /api-docs (no auth)"]
+```
+
+### Key Design Decisions
+
+1. **Spec-from-code** — OpenAPI annotations live alongside route handlers (JSDoc comments) so the spec stays in sync with implementation. Changes to a route require updating the annotation in the same file.
+2. **No auth on /api-docs** — The Swagger UI route is registered before the auth middleware in the Express pipeline, ensuring unauthenticated access for developer convenience.
+3. **securitySchemes** — A `bearerAuth` security scheme is declared globally; protected endpoints reference it via `security: [{ bearerAuth: [] }]`.
+
+### OpenAPI Configuration
+
+```typescript
+// src/config/swagger.ts
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+
+const options: swaggerJsdoc.Options = {
+  definition: {
+    openapi: '3.0.3',
+    info: {
+      title: 'Support Ticket Management API',
+      version: '1.0.0',
+      description: 'Internal support ticket management REST API',
+    },
+    servers: [{ url: '/api', description: 'API server' }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+      schemas: {
+        // Reusable schemas: ErrorResponse, TicketDTO, UserDTO, CommentDTO, etc.
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  },
+  apis: ['./src/routes/*.ts'], // Path to route files with JSDoc annotations
+};
+
+export const swaggerSpec = swaggerJsdoc(options);
+export { swaggerUi };
+```
+
+### Express Registration
+
+```typescript
+// In src/index.ts — registered BEFORE auth middleware
+import { swaggerSpec, swaggerUi } from './config/swagger';
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+```
+
+### Specification Coverage
+
+The OpenAPI document SHALL describe:
+- All REST endpoints (auth, tickets, comments, users)
+- Request body schemas with field types, required indicators, and validation constraints (min/max length, enum values)
+- Response schemas for both success and error cases
+- Path parameters and query parameters (search, status filter)
+- Authentication requirements per endpoint
+
+---
+
+## Docker Infrastructure
+
+### Container Architecture
+
+```mermaid
+graph TB
+    subgraph docker-compose
+        FE["frontend<br/>(nginx:alpine)"]
+        BE["backend-api<br/>(node:22-alpine)"]
+        DB["postgres:16-alpine"]
+    end
+
+    FE -->|"port 80 → 5173"| Browser
+    BE -->|"port 3000"| FE
+    BE -->|"port 5432"| DB
+    DB --- Volume["pgdata (named volume)"]
+```
+
+### Dockerfile — Backend API
+
+```dockerfile
+# backend-api/Dockerfile
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/db ./db
+EXPOSE 3000
+CMD ["node", "dist/index.js"]
+```
+
+**Design decisions:**
+- Multi-stage build keeps the production image lean (no devDependencies, no source TypeScript).
+- The `db/` directory is copied so the container can run migrations on startup.
+- Node.js 22 Alpine base minimizes image size (~180 MB).
+
+### Dockerfile — Frontend
+
+```dockerfile
+# ui/Dockerfile
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+**Design decisions:**
+- The built React app is static files served by nginx — no Node.js runtime needed in production.
+- A custom `nginx.conf` handles SPA fallback routing (`try_files $uri /index.html`).
+
+### docker-compose.yml Structure
+
+```yaml
+# docker-compose.yml (repo root)
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ticket_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend-api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ticket_system
+      JWT_SECRET: ${JWT_SECRET:-a-very-long-secret-key-for-development-only-32chars}
+      PORT: "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "node db/migrate.js && node db/seed.js && node dist/index.js"
+
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+```
+
+**Key design decisions:**
+- **Named volume `pgdata`** — PostgreSQL data persists across `docker-compose down` / `up` cycles.
+- **Health check + `depends_on` condition** — Backend starts only after PostgreSQL accepts connections (prevents migration failures).
+- **Auto-migration on start** — The backend `command` runs `migrate.js` and `seed.js` before starting the server, ensuring the database is initialized on first start.
+- **Environment variables** — Passed via the `environment` section; production deployments can substitute an `env_file` reference.
+
+### .dockerignore Files
+
+Both contexts include `.dockerignore` files to exclude:
+```
+node_modules
+.env
+.env.*
+dist
+.git
+*.log
+```
+
+---
+
+## CI Pipeline (GitHub Actions)
+
+### Workflow Architecture
+
+```mermaid
+graph LR
+    Trigger["push to main<br/>PR → main"] --> Install["Install<br/>(npm ci)"]
+    Install --> Lint["Lint<br/>(ESLint)"]
+    Lint --> Build["Build<br/>(TypeScript + Vite)"]
+    Build --> Test["Test<br/>(Jest + PG service)"]
+```
+
+**Fail-fast:** Each step depends on the previous; any failure stops the pipeline immediately.
+
+### Workflow Configuration
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ticket_system_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ticket_system_test
+      JWT_SECRET: ci-test-secret-key-at-least-32-characters-long
+      PORT: "3000"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      # Install all dependencies
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend-api
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ui
+
+      # Lint
+      - name: Lint backend
+        run: npm run lint
+        working-directory: backend-api
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: ui
+
+      # Build
+      - name: Build backend
+        run: npm run build
+        working-directory: backend-api
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: ui
+
+      # Test (backend with PostgreSQL service container)
+      - name: Run migrations
+        run: node db/migrate.js
+        working-directory: backend-api
+
+      - name: Run backend tests
+        run: npm test
+        working-directory: backend-api
+```
+
+### CI Design Decisions
+
+1. **Single job, sequential steps** — Keeps the pipeline simple and ensures fail-fast ordering (install → lint → build → test).
+2. **PostgreSQL service container** — GitHub Actions provisions a real Postgres instance for integration tests; credentials match the test env vars.
+3. **Node.js 22** — Matches `.nvmrc` and production runtime.
+4. **`npm ci`** — Installs from lockfile for reproducible, deterministic builds.
+5. **Separate working directories** — backend-api and ui are independent packages; each gets its own install/lint/build step.
+6. **Migrations before tests** — The migration step runs against the test database before the test suite executes.
+
+---
+
 ## Error Handling
 
 ### Backend Error Strategy
@@ -727,4 +1061,22 @@ npm run test:integration --prefix backend-api
 # Run frontend tests
 npm run test --prefix ui
 ```
+
+### CI Integration
+
+All test suites run automatically in the GitHub Actions CI pipeline (see [CI Pipeline section](#ci-pipeline-github-actions)):
+- **Lint** — ESLint runs on both backend and frontend source before tests execute.
+- **Build** — TypeScript compilation (backend) and Vite production build (frontend) must succeed before test step.
+- **Test** — Backend tests run against a PostgreSQL service container provisioned by the CI workflow. This ensures integration tests hit a real database, matching production behavior.
+- **Fail-fast** — Any step failure (lint, build, or test) halts the pipeline immediately, providing fast feedback.
+
+### Docker-Based Local Testing
+
+For full-stack integration testing, developers can use Docker Compose:
+```bash
+docker-compose up --build    # Start all services with fresh builds
+docker-compose down -v       # Tear down including volumes (clean slate)
+```
+
+The Docker setup automatically runs migrations and seeds on first PostgreSQL start, providing a zero-configuration development environment for manual testing and exploratory QA.
 
