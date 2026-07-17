@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ticket_system_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ticket_system_test
+      JWT_SECRET: test-jwt-secret-for-ci-pipeline-min-32-chars
+      PORT: 3000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend-api/package-lock.json
+            ui/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend-api/
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ui/
+
+      - name: Lint backend
+        run: npm run lint
+        working-directory: backend-api/
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: ui/
+
+      - name: Build backend
+        run: npm run build
+        working-directory: backend-api/
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: ui/
+
+      - name: Run migrations
+        run: node db/migrate.js
+        working-directory: backend-api/
+
+      - name: Run backend tests
+        run: npm test
+        working-directory: backend-api/

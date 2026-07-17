@@ -317,13 +317,13 @@ This plan implements a full-stack internal support ticket management system with
 - [x] 15. Final checkpoint — All tests pass and project is complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 16. API Documentation via OpenAPI Specification
-  - [ ] 16.1 Install swagger-jsdoc and swagger-ui-express with type definitions
+- [x] 16. API Documentation via OpenAPI Specification
+  - [x] 16.1 Install swagger-jsdoc and swagger-ui-express with type definitions
     - Run `npm install swagger-jsdoc swagger-ui-express` in backend-api
     - Run `npm install -D @types/swagger-jsdoc @types/swagger-ui-express` in backend-api
     - _Requirements: 23.1, 23.2_
 
-  - [ ] 16.2 Create src/config/swagger.ts with OpenAPI 3.x configuration
+  - [x] 16.2 Create src/config/swagger.ts with OpenAPI 3.x configuration
     - Define OpenAPI 3.0.3 specification with info (title, version, description)
     - Configure servers array pointing to `/api`
     - Define `securitySchemes` with bearerAuth (type: http, scheme: bearer, bearerFormat: JWT)
@@ -332,13 +332,13 @@ This plan implements a full-stack internal support ticket management system with
     - Export `swaggerSpec` and `swaggerUi` for use in index.ts
     - _Requirements: 23.1, 23.4, 23.5, 23.6_
 
-  - [ ] 16.3 Add JSDoc OpenAPI annotations to src/routes/auth.ts
+  - [x] 16.3 Add JSDoc OpenAPI annotations to src/routes/auth.ts
     - Annotate POST /api/auth/login with request body schema, 200/401/400 responses
     - Annotate GET /api/auth/me with security requirement, 200/401 responses
     - Include field types, required indicators, and validation constraints
     - _Requirements: 23.4, 23.5, 23.7_
 
-  - [ ] 16.4 Add JSDoc OpenAPI annotations to src/routes/tickets.ts
+  - [x] 16.4 Add JSDoc OpenAPI annotations to src/routes/tickets.ts
     - Annotate POST /api/tickets with request body, 201/400/401 responses
     - Annotate GET /api/tickets with query parameters (search, status), 200/401 responses
     - Annotate GET /api/tickets/:id with path parameter, 200/404/401 responses
@@ -346,75 +346,75 @@ This plan implements a full-stack internal support ticket management system with
     - Annotate PATCH /api/tickets/:id/status with request body, 200/400/409/404/401 responses
     - _Requirements: 23.4, 23.5, 23.7_
 
-  - [ ] 16.5 Add JSDoc OpenAPI annotations to src/routes/comments.ts
+  - [x] 16.5 Add JSDoc OpenAPI annotations to src/routes/comments.ts
     - Annotate POST /api/tickets/:id/comments with request body, 201/400/404/401 responses
     - Include message field max length constraint in schema
     - _Requirements: 23.4, 23.5, 23.7_
 
-  - [ ] 16.6 Add JSDoc OpenAPI annotations to src/routes/users.ts
+  - [x] 16.6 Add JSDoc OpenAPI annotations to src/routes/users.ts
     - Annotate GET /api/users with 200/401 responses
     - Annotate POST /api/users with request body, security, 201/400/409/403 responses
     - Annotate PATCH /api/users/:id with request body, security, 200/400/404/409/403 responses
     - Annotate DELETE /api/users/:id with security, 200/404/409/403 responses
     - _Requirements: 23.4, 23.5, 23.6, 23.7_
 
-  - [ ] 16.7 Register /api-docs route BEFORE auth middleware in src/index.ts
+  - [x] 16.7 Register /api-docs route BEFORE auth middleware in src/index.ts
     - Import swaggerSpec and swaggerUi from src/config/swagger
     - Add `app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))` before authMiddleware registration
     - Ensure /api-docs is accessible without authentication
     - _Requirements: 23.2, 23.3_
 
-  - [ ]* 16.8 Write smoke test verifying GET /api-docs returns 200 without auth
+  - [x] 16.8 Write smoke test verifying GET /api-docs returns 200 without auth
     - Create `backend-api/tests/integration/swagger.test.ts`
     - Test that GET /api-docs returns HTTP 200 without any Authorization header
     - Test that response content-type includes text/html (Swagger UI page)
     - **Property 25: OpenAPI documentation is accessible without authentication**
     - **Validates: Requirements 23.2, 23.3**
 
-- [ ] 17. Docker Setup for Containerized Development and Deployment
-  - [ ] 17.1 Create backend-api/Dockerfile (multi-stage, Node.js 22 Alpine)
+- [x] 17. Docker Setup for Containerized Development and Deployment
+  - [x] 17.1 Create backend-api/Dockerfile (multi-stage, Node.js 22 Alpine)
     - Stage 1 (builder): FROM node:22-alpine, WORKDIR /app, copy package files, npm ci, copy source, npm run build
     - Stage 2 (production): FROM node:22-alpine, WORKDIR /app, copy dist, node_modules, package.json, and db/ from builder
     - EXPOSE 3000, CMD ["node", "dist/index.js"]
     - _Requirements: 24.1_
 
-  - [ ] 17.2 Create backend-api/.dockerignore
+  - [x] 17.2 Create backend-api/.dockerignore
     - Exclude: node_modules, .env, .env.*, dist, .git, *.log, tests, coverage
     - _Requirements: 24.8_
 
-  - [ ] 17.3 Create ui/Dockerfile (multi-stage, nginx:alpine for serving built React)
+  - [x] 17.3 Create ui/Dockerfile (multi-stage, nginx:alpine for serving built React)
     - Stage 1 (builder): FROM node:22-alpine, WORKDIR /app, copy package files, npm ci, copy source, npm run build
     - Stage 2 (production): FROM nginx:alpine, copy built dist to /usr/share/nginx/html, copy nginx.conf
     - EXPOSE 80, CMD ["nginx", "-g", "daemon off;"]
     - _Requirements: 24.2_
 
-  - [ ] 17.4 Create ui/nginx.conf with SPA fallback routing
+  - [x] 17.4 Create ui/nginx.conf with SPA fallback routing
     - Configure server block listening on port 80
     - Set root to /usr/share/nginx/html
     - Add `try_files $uri $uri/ /index.html` for SPA client-side routing support
     - Include gzip compression and appropriate cache headers for static assets
     - _Requirements: 24.2_
 
-  - [ ] 17.5 Create ui/.dockerignore
+  - [x] 17.5 Create ui/.dockerignore
     - Exclude: node_modules, .env, .env.*, dist, .git, *.log, coverage
     - _Requirements: 24.8_
 
-  - [ ] 17.6 Create docker-compose.yml at repo root with postgres, backend, and frontend services
+  - [x] 17.6 Create docker-compose.yml at repo root with postgres, backend, and frontend services
     - Define `postgres` service: image postgres:16-alpine, POSTGRES_USER/PASSWORD/DB env vars, port 5432, named volume `pgdata`, healthcheck with pg_isready
     - Define `backend` service: build context ./backend-api, port 3000, environment (DATABASE_URL, JWT_SECRET, PORT), depends_on postgres with condition service_healthy, command runs migrations + seed + server
     - Define `frontend` service: build context ./ui, port 5173:80, depends_on backend
     - Define named volume `pgdata` for PostgreSQL data persistence
     - _Requirements: 24.3, 24.4, 24.5, 24.6, 24.7, 24.9_
 
-- [ ] 18. CI Workflow via GitHub Actions
-  - [ ] 18.1 Create .github/workflows/ci.yml
+- [x] 18. CI Workflow via GitHub Actions
+  - [x] 18.1 Create .github/workflows/ci.yml
     - Configure triggers: push to main branch, pull_request targeting main branch
     - Define single job `ci` running on ubuntu-latest
     - Add PostgreSQL 16-alpine service container with health check, credentials (postgres/postgres), and exposed port 5432
     - Set job-level env vars: DATABASE_URL, JWT_SECRET (≥32 chars), PORT
     - _Requirements: 25.1, 25.7_
 
-  - [ ] 18.2 Configure CI steps with fail-fast ordering
+  - [x] 18.2 Configure CI steps with fail-fast ordering
     - Step 1: actions/checkout@v4
     - Step 2: actions/setup-node@v4 with node-version 22 and npm cache
     - Step 3: Install backend dependencies (`npm ci` in backend-api/)
@@ -428,7 +428,7 @@ This plan implements a full-stack internal support ticket management system with
     - Ensure sequential step ordering so any failure stops the pipeline
     - _Requirements: 25.2, 25.3, 25.4, 25.5, 25.6, 25.8_
 
-- [ ] 19. Final checkpoint — New features complete
+- [~] 19. Final checkpoint — New features complete
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
