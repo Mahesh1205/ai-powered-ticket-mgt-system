@@ -8,9 +8,39 @@ import type { UserDTO } from "../types/index";
 const router = Router();
 
 /**
- * POST /api/auth/login
- * Authenticates a user with email and password.
- * Returns a JWT token and user object on success.
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Authenticate user
+ *     description: Authenticates a user with email and password. Returns a JWT token and user object on success.
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful — returns JWT token and user object
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       400:
+ *         description: Validation failed — missing or malformed email/password fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid credentials — email or password is incorrect
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/login", async (req: Request, res: Response): Promise<void> => {
   const parsed = loginSchema.safeParse(req.body);
@@ -41,9 +71,28 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
 });
 
 /**
- * GET /api/auth/me
- * Returns the current authenticated user's info (without passwordHash).
- * Requires a valid Bearer token.
+ * @openapi
+ * /auth/me:
+ *   get:
+ *     tags:
+ *       - Authentication
+ *     summary: Get current user
+ *     description: Returns the currently authenticated user's information (id, name, email, role). Requires a valid Bearer token.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current authenticated user object
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserDTO'
+ *       401:
+ *         description: Missing, invalid, or expired Bearer token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/me", authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.sub;

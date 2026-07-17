@@ -11,6 +11,7 @@ import commentRoutes from "./routes/comments";
 import userRoutes from "./routes/users";
 import { authMiddleware } from "./middleware/auth";
 import { errorHandler } from "./middleware/errorHandler";
+import { swaggerSpec, swaggerUi } from "./config/swagger";
 
 // Startup guard: JWT_SECRET must be at least 32 characters
 const jwtSecret = process.env.JWT_SECRET;
@@ -44,6 +45,9 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
+
+// Swagger API docs (public, no auth required)
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Auth routes (login is public, /me is protected internally)
 app.use("/api/auth", authLimiter, authRoutes);

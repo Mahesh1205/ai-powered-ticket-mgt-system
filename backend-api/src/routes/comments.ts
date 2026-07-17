@@ -9,9 +9,54 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
- * POST /api/tickets/:id/comments
- * Add a comment to a ticket.
- * Body: { message }
+ * @openapi
+ * /tickets/{id}/comments:
+ *   post:
+ *     summary: Add a comment to a ticket
+ *     description: Creates a new comment on the specified ticket. The comment is linked to the authenticated user.
+ *     tags:
+ *       - Comments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the ticket to comment on
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateCommentRequest'
+ *     responses:
+ *       '201':
+ *         description: Comment created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CommentDTO'
+ *       '400':
+ *         description: Validation failed — message is missing, whitespace-only, or exceeds 2000 characters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized — missing or invalid Bearer token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: Ticket not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/:id/comments", async (req: Request, res: Response): Promise<void> => {
   const ticketId = req.params.id as string;
