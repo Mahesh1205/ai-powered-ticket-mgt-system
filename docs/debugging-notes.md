@@ -1,32 +1,74 @@
 # Debugging Notes
 
-This document records significant debugging sessions encountered during development, including root cause analysis and resolutions.
+## Issue 1
+
+### Problem
+Server crashed on startup with `ECONNREFUSED` when attempting to connect to PostgreSQL.
+
+### How I Investigated
+1. Verified PostgreSQL service was running (`pg_isready` returned success)
+2. Checked DATABASE_URL format in `.env` — correct
+3. Connected manually with `psql` using the same connection string — worked
+4. Added console.log before Pool creation — discovered `process.env.DATABASE_URL` was undefined at that point
+
+### How AI Helped
+Kiro identified that `dotenv.config()` was being called AFTER the database module was imported. Since the pg Pool reads `process.env.DATABASE_URL` at module evaluation time (import time), the environment variable hadn't been populated yet.
+
+### What I Validated
+- Added `console.log(process.env.DATABASE_URL)` at different points in the startup sequence
+- Confirmed that moving dotenv before imports resolved the issue
+- Ran `npm run dev` successfully after the fix
+
+### Final Fix
+Moved `dotenv.config()` to the very first line of `src/index.ts` before any other imports. Added a comment noting that dotenv must be first.
 
 ---
 
-## Template
+## Issue 2
 
-### Issue: [Brief description]
+### Problem
+All authenticated requests returning 401 "Invalid token" despite tokens decoding correctly on jwt.io.
 
-**Date:** YYYY-MM-DD
+### How I Investigated
+1. Logged the JWT_SECRET being used for signing vs verification
+2. Found they appeared identical but string comparison failed
+3. Checked for invisible characters — found trailing newline in .env value
+4. Compared `secret.length` between sign and verify code paths
 
-**Symptoms:**
-- What was observed (error messages, unexpected behavior)
+### How AI Helped
+Kiro suggested checking for whitespace/newline characters in the .env file and recommended centralizing env var access through a config module with `.trim()`.
 
-**Investigation Steps:**
-1. Step taken to narrow down the issue
-2. What was checked / what tools were used
-3. Key findings during investigation
+### What I Validated
+- Confirmed `JWT_SECRET.length` was different between code paths (one had trailing \n)
+- After adding `.trim()`, token verification worked consistently
+- Ran integration tests to verify sign→verify round trip
 
-**Root Cause:**
-- Technical explanation of why the issue occurred
+### Final Fix
+Added `.trim()` to JWT_SECRET read. Centralized all env var access through consistent access patterns.
 
-**Resolution:**
-- What was changed to fix the issue
-- Files modified
+---
 
-**Prevention:**
-- What could prevent this in the future (tests, validation, documentation)
+## Issue 3
+
+### Problem
+Invalid status transitions returning HTTP 500 instead of the expected HTTP 409.
+
+### How I Investigated
+1. Verified error handler middleware was mounted after routes — it was
+2. Added logging in the error handler — ConflictError was not reaching it
+3. Traced the error flow: service throws → route handler... → unhandled rejection
+4. Found the route handler was not `await`-ing the async service call properly
+
+### How AI Helped
+Kiro traced the execution path and identified that without explicit try/catch in the async route handler, the promise rejection became "unhandled" and bypassed Express's synchronous error middleware chain.
+
+### What I Validated
+- Added try/catch with `next(error)` — confirmed 409 responses returned correctly
+- Ran integration tests for all invalid transitions — all passed with 409
+- Verified no other async handlers had the same issue
+
+### Final Fix
+Wrapped all async route handler bodies in try/catch with `next(error)` in the catch block. Adopted this as a consistent pattern for all route handlers.
 
 ---
 
